@@ -1,0 +1,11 @@
+version: '3.8'
+services:
+  db:
+    image: postgres:16
+    container_name: mefcca_postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: admin123
+      POSTGRES_DB: mefcca_db
+    ports:
+      - "5432:5432"

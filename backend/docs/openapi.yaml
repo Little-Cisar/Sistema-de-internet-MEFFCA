@@ -1,0 +1,471 @@
+openapi: 3.0.3
+info:
+  title: MEFCCA API REST
+  version: 1.4.0
+  description: API REST para autenticación, catálogo, perfiles, administración, interacciones y operaciones comerciales del sistema MEFCCA.
+servers:
+  - url: http://localhost:3000/api
+    description: Desarrollo local
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    CategoriaInput:
+      type: object
+      required: [nombre_categoria]
+      properties:
+        nombre_categoria:
+          type: string
+          minLength: 2
+          maxLength: 50
+        descripcion:
+          type: string
+          nullable: true
+    ProductoInput:
+      type: object
+      required: [nombre_producto, id_categoria, precio, stock_actual]
+      properties:
+        nombre_producto:
+          type: string
+          minLength: 2
+          maxLength: 150
+        id_categoria:
+          type: integer
+          minimum: 1
+        descripcion:
+          type: string
+          nullable: true
+        precio:
+          type: number
+          minimum: 0
+          maximum: 99999999.99
+        imagen:
+          type: string
+          format: uri
+          nullable: true
+        stock_actual:
+          type: integer
+          minimum: 0
+    Error:
+      type: object
+      properties:
+        mensaje:
+          type: string
+paths:
+  /auth/registro:
+    post:
+      summary: Registrar cliente o protagonista
+      description: El registro público no permite crear cuentas Admin. Los protagonistas quedan pendientes de verificación institucional.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email, maxLength: 254 }
+                password: { type: string, minLength: 8, maxLength: 72 }
+                rol: { type: string, enum: [Cliente, Protagonista], default: Cliente }
+                nombre_negocio: { type: string, maxLength: 100 }
+                telefono_whatsapp: { type: string, maxLength: 20 }
+                departamento: { type: string, maxLength: 50 }
+                descripcion_negocio: { type: string, nullable: true }
+      responses:
+        '201': { description: Cuenta registrada. }
+        '400': { description: Datos inválidos o rol público no permitido. }
+        '409': { description: El correo ya existe. }
+  /auth/login:
+    post:
+      summary: Iniciar sesión
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string, minLength: 8, maxLength: 72 }
+      responses:
+        '200': { description: Credenciales válidas; respuesta con JWT y perfil público de cuenta. }
+        '401': { description: Credenciales incorrectas. }
+  /auth/perfil:
+    get:
+      summary: Consultar perfil autenticado
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Información de la cuenta y perfil de protagonista si corresponde. }
+        '401': { description: Token requerido, inválido o vencido. }
+  /productos:
+    get:
+      summary: Listar productos públicos
+      description: Solo devuelve productos Activos de protagonistas verificados. Admite filtros y paginación.
+      parameters:
+        - in: query
+          name: q
+          schema: { type: string, maxLength: 100 }
+        - in: query
+          name: id_categoria
+          schema: { type: integer, minimum: 1 }
+        - in: query
+          name: id_protagonista
+          schema: { type: integer, minimum: 1 }
+        - in: query
+          name: min_precio
+          schema: { type: number, minimum: 0 }
+        - in: query
+          name: max_precio
+          schema: { type: number, minimum: 0 }
+        - in: query
+          name: page
+          schema: { type: integer, minimum: 1, default: 1 }
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 100, default: 100 }
+        - in: query
+          name: orden
+          schema:
+            type: string
+            enum: [recientes, precio_asc, precio_desc, nombre_asc]
+      responses:
+        '200':
+          description: Lista de productos y metadatos de paginación.
+        '400':
+          description: Parámetros inválidos.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+    post:
+      summary: Publicar producto
+      description: Solo para un protagonista verificado. El propietario se deduce del token, no del cuerpo de la solicitud.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProductoInput' }
+      responses:
+        '201': { description: Producto creado. }
+        '401': { description: Token requerido o inválido. }
+        '403': { description: Rol incorrecto o protagonista no verificado. }
+        '400': { description: Datos inválidos o categoría inexistente. }
+  /productos/mios:
+    get:
+      summary: Consultar productos propios
+      description: Devuelve productos Activos e Inactivos de la cuenta de protagonista autenticada.
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Lista de publicaciones propias. }
+        '401': { description: Token requerido o inválido. }
+        '403': { description: Se requiere el rol Protagonista. }
+  /productos/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: integer, minimum: 1 }
+    get:
+      summary: Consultar detalle público de producto
+      responses:
+        '200': { description: Detalle de producto activo y publicado. }
+        '404': { description: Producto no disponible. }
+    put:
+      summary: Editar producto propio
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProductoInput' }
+      responses:
+        '200': { description: Producto actualizado. }
+        '403': { description: El usuario no es propietario. }
+        '404': { description: Producto inexistente. }
+    delete:
+      summary: Desactivar producto (baja lógica)
+      description: Cambia el estado a Inactivo, no elimina físicamente el registro.
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Producto desactivado. }
+        '403': { description: El usuario no es propietario. }
+        '404': { description: Producto inexistente. }
+  /productos/{id}/estado:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: integer, minimum: 1 }
+    patch:
+      summary: Cambiar estado del producto
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [estado]
+              properties:
+                estado:
+                  type: string
+                  enum: [Activo, Inactivo]
+      responses:
+        '200': { description: Estado actualizado. }
+        '403': { description: El usuario no es propietario o el perfil no está verificado para activar. }
+  /categorias:
+    get:
+      summary: Consultar categorías
+      responses:
+        '200': { description: Lista de categorías. }
+    post:
+      summary: Crear categoría
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CategoriaInput' }
+      responses:
+        '201': { description: Categoría creada. }
+        '403': { description: Solo Admin puede crear categorías. }
+        '409': { description: Nombre duplicado. }
+  /categorias/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: integer, minimum: 1 }
+    put:
+      summary: Editar categoría
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CategoriaInput' }
+      responses:
+        '200': { description: Categoría actualizada. }
+        '403': { description: Solo Admin puede editar categorías. }
+        '404': { description: Categoría inexistente. }
+        '409': { description: Nombre duplicado. }
+
+  /protagonistas:
+    get:
+      summary: Listar perfiles públicos verificados
+      responses:
+        '200': { description: Directorio de protagonistas verificados con productos activos. }
+  /protagonistas/me:
+    get:
+      summary: Consultar el perfil propio de protagonista
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Perfil propio. }
+        '401': { description: Token inválido o faltante. }
+        '403': { description: Se requiere rol Protagonista. }
+        '404': { description: La cuenta no tiene perfil de protagonista. }
+  /protagonistas/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: integer, minimum: 1 }
+    get:
+      summary: Consultar perfil público verificado
+      responses:
+        '200': { description: Perfil público del protagonista. }
+        '404': { description: Perfil no existe o no está verificado. }
+    put:
+      summary: Actualizar perfil propio de protagonista
+      description: Solo permite cambiar el perfil asociado al usuario autenticado.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [nombre_negocio, telefono_whatsapp, departamento]
+              properties:
+                nombre_negocio: { type: string, minLength: 2, maxLength: 100 }
+                telefono_whatsapp: { type: string, minLength: 8, maxLength: 20 }
+                departamento: { type: string, minLength: 2, maxLength: 50 }
+                descripcion_negocio: { type: string, nullable: true, maxLength: 4000 }
+      responses:
+        '200': { description: Perfil actualizado. }
+        '401': { description: Token inválido o faltante. }
+        '403': { description: Se requiere rol Protagonista. }
+        '404': { description: El perfil no existe o no pertenece al usuario autenticado. }
+  /admin/usuarios:
+    get:
+      summary: Listar cuentas sin datos de autenticación
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Lista de usuarios con correo, rol y fecha de creación; no incluye hashes. }
+        '401': { description: Token inválido o faltante. }
+        '403': { description: Solo Admin. }
+  /admin/protagonistas/pendientes:
+    get:
+      summary: Listar protagonistas pendientes de verificación
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Lista de perfiles pendientes. }
+        '403': { description: Solo Admin. }
+  /admin/protagonistas/{id}/verificacion:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: integer, minimum: 1 }
+    patch:
+      summary: Cambiar estado de verificación de un protagonista
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [estado_verificacion]
+              properties:
+                estado_verificacion: { type: boolean }
+      responses:
+        '200': { description: Estado de verificación actualizado. }
+        '403': { description: Solo Admin. }
+        '404': { description: Perfil de protagonista inexistente. }
+
+  /interacciones/mis:
+    get:
+      summary: Consultar resumen e interacciones recientes del protagonista autenticado
+      description: Devuelve únicamente interacciones de productos pertenecientes a la cuenta protagonista del JWT.
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Resumen y hasta diez interacciones recientes. }
+        '401': { description: Token requerido o inválido. }
+        '403': { description: Solo Protagonista puede consultar sus interacciones. }
+  /interacciones:
+    post:
+      summary: Registrar clic de contacto por WhatsApp
+      description: Público; si aporta JWT válido se asocia el usuario. El id_usuario nunca se acepta desde el cuerpo. Solo registra productos activos de protagonistas verificados.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id_producto]
+              properties:
+                id_producto: { type: integer, minimum: 1 }
+                tipo_accion: { type: string, enum: [Clic en WhatsApp], default: Clic en WhatsApp }
+      responses:
+        '201': { description: Interacción registrada. }
+        '400': { description: Datos inválidos. }
+        '401': { description: JWT inválido si se proporcionó uno. }
+        '404': { description: Producto no publicado o no disponible. }
+  /reportes/interacciones:
+    get:
+      summary: Consultar informe administrativo de interacciones
+      description: Devuelve métricas generales, los cinco productos con más interacciones y hasta 200 eventos recientes.
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Resumen e historial de interacciones. }
+        '401': { description: Token requerido o inválido. }
+        '403': { description: Solo Admin puede consultar este reporte. }
+
+  /ventas:
+    get:
+      summary: Consultar ventas de toda la plataforma
+      description: Solo Admin. Devuelve hasta 200 operaciones recientes.
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Historial administrativo de ventas. }
+        '401': { description: Token requerido o inválido. }
+        '403': { description: Solo Admin. }
+    post:
+      summary: Registrar una venta ya concretada
+      description: Solo un protagonista verificado. Actualiza existencias e inserta cabecera/detalles dentro de una transacción SQL. No procesa pagos ni pedidos en línea.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [detalles]
+              properties:
+                comprador_email: { type: string, format: email, maxLength: 254, nullable: true }
+                metodo_pago: { type: string, maxLength: 50, nullable: true }
+                metodo_entrega: { type: string, maxLength: 50, nullable: true }
+                observaciones: { type: string, maxLength: 500, nullable: true }
+                detalles:
+                  type: array
+                  minItems: 1
+                  maxItems: 30
+                  items:
+                    type: object
+                    required: [id_producto, cantidad]
+                    properties:
+                      id_producto: { type: integer, minimum: 1 }
+                      cantidad: { type: integer, minimum: 1 }
+      responses:
+        '201': { description: Venta registrada y stock actualizado. }
+        '400': { description: Datos inválidos, comprador no válido o producto ajeno. }
+        '401': { description: Token requerido o inválido. }
+        '403': { description: Protagonista no verificado o perfil inexistente. }
+        '409': { description: Stock insuficiente o producto inactivo. }
+  /ventas/mias:
+    get:
+      summary: Consultar las ventas del protagonista autenticado
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Hasta 200 ventas propias. }
+        '403': { description: Solo Protagonista. }
+  /ventas/compras:
+    get:
+      summary: Consultar compras vinculadas a la cuenta autenticada
+      description: Se muestran operaciones cuyo id_comprador_usuario corresponde al usuario autenticado.
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Historial de compras vinculadas. }
+        '403': { description: Solo Cliente o Protagonista. }
+  /ventas/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: integer, minimum: 1 }
+    get:
+      summary: Consultar detalle de una operación
+      description: Accesible al administrador, al vendedor propietario o al comprador vinculado.
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Cabecera, total y líneas de la venta. }
+        '404': { description: Operación inexistente o no accesible para esta cuenta. }
+  /ventas/{id}/anular:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: integer, minimum: 1 }
+    patch:
+      summary: Anular una venta y restaurar existencias
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Venta anulada y existencias restauradas. }
+        '403': { description: No tiene permisos para anular la operación. }
+        '404': { description: Operación inexistente o no accesible. }
+        '409': { description: Operación ya anulada o stock no restaurable. }
+
+  /reportes/ventas:
+    get:
+      summary: Consultar informe administrativo de ventas
+      description: Métricas de operaciones registradas/anuladas y cinco productos con más unidades vendidas. Los importes excluyen operaciones anuladas.
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Resumen de ventas y productos más vendidos. }
+        '401': { description: Token requerido o inválido. }
+        '403': { description: Solo Admin. }

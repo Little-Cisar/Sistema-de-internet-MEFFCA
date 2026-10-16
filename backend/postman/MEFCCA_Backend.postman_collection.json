@@ -1,0 +1,930 @@
+{
+  "info": {
+    "_postman_id": "b0e15f88-1b31-4a4f-a80e-849f88c8b915",
+    "name": "MEFCCA API REST - SQL Server",
+    "description": "Pruebas de autenticación, catálogo, categorías, perfiles, verificación administrativa, interacciones y reporte administrativo.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "1.4.0"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000/api"
+    },
+    {
+      "key": "tokenProtagonista",
+      "value": ""
+    },
+    {
+      "key": "tokenAdmin",
+      "value": ""
+    },
+    {
+      "key": "productId",
+      "value": ""
+    },
+    {
+      "key": "categoryId",
+      "value": ""
+    },
+    {
+      "key": "protagonistId",
+      "value": ""
+    },
+    {
+      "key": "tokenCliente",
+      "value": ""
+    },
+    {
+      "key": "saleId",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "01 - Salud de la API y SQL Server",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/health"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('API responde 200', function () { pm.response.to.have.status(200); });",
+              "pm.test('SQL Server aparece conectado', function () { pm.expect(pm.response.json().base_de_datos).to.eql('conectada'); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 - Categorías públicas",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/categorias"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Consulta de categorías responde 200', function () { pm.response.to.have.status(200); });",
+              "const data = pm.response.json();",
+              "if (data.categorias && data.categorias.length) { pm.collectionVariables.set('categoryId', data.categorias[0].id_categoria); }",
+              "pm.test('La respuesta contiene una lista de categorías', function () { pm.expect(data.categorias).to.be.an('array'); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 - Catálogo público de productos",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/productos?limit=20&orden=recientes"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Catálogo responde 200', function () { pm.response.to.have.status(200); });",
+              "pm.test('La respuesta contiene productos y paginación', function () { const data = pm.response.json(); pm.expect(data.productos).to.be.an('array'); pm.expect(data.paginacion).to.be.an('object'); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 - Login protagonista (edite credenciales)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"protagonista.prueba@example.com\",\n  \"password\": \"Prueba123!\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{baseUrl}}/auth/login"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Login protagonista responde 200', function () { pm.response.to.have.status(200); });",
+              "const data = pm.response.json();",
+              "if (data.token) pm.collectionVariables.set('tokenProtagonista', data.token);",
+              "pm.test('Se recibió token JWT', function () { pm.expect(data.token).to.be.a('string'); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 - Login administrador inicial (edite credenciales)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"admin.prueba@mefcca.local\",\n  \"password\": \"CAMBIAR_POR_LA_CLAVE_ELEGIDA\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{baseUrl}}/auth/login"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Login administrador responde 200', function () { pm.response.to.have.status(200); });",
+              "const data = pm.response.json();",
+              "if (data.token) pm.collectionVariables.set('tokenAdmin', data.token);",
+              "pm.test('La cuenta tiene rol Admin', function () { pm.expect(data.usuario.rol).to.eql('Admin'); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "13 - Directorio público de protagonistas verificados",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/protagonistas"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Directorio público responde 200', function () { pm.response.to.have.status(200); });",
+              "const data = pm.response.json();",
+              "pm.test('La respuesta contiene protagonistas', function () { pm.expect(data.protagonistas).to.be.an('array'); });",
+              "if (data.protagonistas && data.protagonistas.length) pm.collectionVariables.set('protagonistId', data.protagonistas[0].id_protagonista);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "14 - Mi perfil de protagonista (guardar ID)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{tokenProtagonista}}"
+          }
+        ],
+        "url": "{{baseUrl}}/protagonistas/me"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Mi perfil responde 200', function () { pm.response.to.have.status(200); });",
+              "const data = pm.response.json();",
+              "if (data.protagonista && data.protagonista.id_protagonista) pm.collectionVariables.set('protagonistId', data.protagonista.id_protagonista);",
+              "pm.test('La respuesta contiene el perfil propio', function () { pm.expect(data.protagonista.id_protagonista).to.exist; });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "17 - Lista de usuarios administrativos",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{tokenAdmin}}"
+          }
+        ],
+        "url": "{{baseUrl}}/admin/usuarios"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Lista administrativa responde 200', function () { pm.response.to.have.status(200); });",
+              "pm.test('La respuesta no debe exponer contraseñas', function () { const raw = pm.response.text(); pm.expect(raw).not.to.include('password_hash'); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "18 - Consultar protagonistas pendientes",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{tokenAdmin}}"
+          }
+        ],
+        "url": "{{baseUrl}}/admin/protagonistas/pendientes"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Consulta de pendientes responde 200', function () { pm.response.to.have.status(200); });",
+              "pm.test('La respuesta contiene una lista', function () { pm.expect(pm.response.json().protagonistas).to.be.an('array'); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "19 - Verificar protagonista (Admin)",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{tokenAdmin}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/admin/protagonistas/{{protagonistId}}/verificacion",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"estado_verificacion\": true\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Verificación administrativa responde 200', function () { pm.response.to.have.status(200); });",
+              "pm.test('El perfil queda verificado', function () { pm.expect(pm.response.json().protagonista.estado_verificacion).to.eql(true); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "15 - Detalle público del protagonista",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/protagonistas/{{protagonistId}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Detalle público responde 200 para un perfil verificado', function () { pm.response.to.have.status(200); });",
+              "pm.test('La respuesta contiene un protagonista', function () { pm.expect(pm.response.json().protagonista.id_protagonista).to.exist; });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "16 - Actualizar perfil propio (cuenta de prueba)",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{tokenProtagonista}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/protagonistas/{{protagonistId}}",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nombre_negocio\": \"Emprendimiento de prueba\",\n  \"telefono_whatsapp\": \"+505 8888 0000\",\n  \"departamento\": \"Masaya\",\n  \"descripcion_negocio\": \"Perfil de prueba para verificar la edición desde la API. Cambiar por los datos propios antes de guardar.\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Actualización de perfil propio responde 200', function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "06 - Mis productos (protagonista)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{tokenProtagonista}}"
+          }
+        ],
+        "url": "{{baseUrl}}/productos/mios"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Mis productos responde 200', function () { pm.response.to.have.status(200); });",
+              "pm.test('La respuesta contiene una lista', function () { pm.expect(pm.response.json().productos).to.be.an('array'); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "07 - Crear producto (protagonista verificado)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{tokenProtagonista}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nombre_producto\": \"Taza artesanal de prueba\",\n  \"id_categoria\": {{categoryId}},\n  \"descripcion\": \"Producto de demostración para probar el catálogo.\",\n  \"precio\": 250.00,\n  \"imagen\": null,\n  \"stock_actual\": 10\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{baseUrl}}/productos"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Producto creado (201)', function () { pm.response.to.have.status(201); });",
+              "const data = pm.response.json();",
+              "if (data.producto && data.producto.id_producto) pm.collectionVariables.set('productId', data.producto.id_producto);",
+              "pm.test('La respuesta incluye el producto creado', function () { pm.expect(data.producto.id_producto).to.exist; });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "08 - Consultar detalle público",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/productos/{{productId}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Detalle responde 200', function () { pm.response.to.have.status(200); });",
+              "pm.test('La respuesta contiene producto', function () { pm.expect(pm.response.json().producto.id_producto).to.exist; });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "09 - Editar producto propio",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{tokenProtagonista}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nombre_producto\": \"Taza artesanal de prueba editada\",\n  \"id_categoria\": {{categoryId}},\n  \"descripcion\": \"Descripción actualizada para comprobar PUT.\",\n  \"precio\": 275.00,\n  \"imagen\": null,\n  \"stock_actual\": 8\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{baseUrl}}/productos/{{productId}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Producto actualizado (200)', function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "10 - Desactivar producto sin borrar historial",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{tokenProtagonista}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"estado\": \"Inactivo\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{baseUrl}}/productos/{{productId}}/estado"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Desactivación lógica responde 200', function () { pm.response.to.have.status(200); });",
+              "pm.test('Producto queda Inactivo', function () { pm.expect(pm.response.json().producto.estado).to.eql('Inactivo'); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "11 - Crear categoría (Admin)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{tokenAdmin}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nombre_categoria\": \"Categoría de prueba {{$timestamp}}\",\n  \"descripcion\": \"Registro temporal para validar el mantenimiento de categorías.\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{baseUrl}}/categorias"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Categoría creada (201)', function () { pm.response.to.have.status(201); });",
+              "const data = pm.response.json();",
+              "if (data.categoria && data.categoria.id_categoria) pm.collectionVariables.set('categoryId', data.categoria.id_categoria);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "12 - Editar categoría (Admin)",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{tokenAdmin}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nombre_categoria\": \"Categoría de prueba editada {{$timestamp}}\",\n  \"descripcion\": \"Descripción actualizada por el administrador.\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{baseUrl}}/categorias/{{categoryId}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Categoría actualizada (200)', function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "20 - Registrar interacción de WhatsApp (público o visitante)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"id_producto\": {{productId}},\n  \"tipo_accion\": \"Clic en WhatsApp\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{baseUrl}}/interacciones",
+        "description": "Usa un productId activo de un protagonista verificado. Esta solicitud es anónima (sin Authorization); la interfaz autenticada asocia el id_usuario mediante un JWT válido."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Interacción registrada', function () { pm.response.to.have.status(201); });",
+              "pm.test('La respuesta incluye la interacción', function () { pm.expect(pm.response.json().interaccion).to.be.an('object'); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "21 - Reporte administrativo de interacciones",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{tokenAdmin}}"
+          }
+        ],
+        "url": "{{baseUrl}}/reportes/interacciones",
+        "description": "Requiere tokenAdmin obtenido al iniciar sesión con una cuenta Admin."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Reporte responde correctamente', function () { pm.response.to.have.status(200); });",
+              "pm.test('El reporte incluye resumen y lista', function () { const data = pm.response.json().reporte; pm.expect(data.resumen).to.be.an('object'); pm.expect(data.interacciones).to.be.an('array'); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "22 - Mis interacciones (Protagonista)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{tokenProtagonista}}"
+          }
+        ],
+        "url": "{{baseUrl}}/interacciones/mis",
+        "description": "Devuelve solo el resumen e historial de interacciones de productos que pertenecen al protagonista autenticado."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Resumen propio responde correctamente', function () { pm.response.to.have.status(200); });",
+              "pm.test('La respuesta incluye resumen e interacciones', function () { const data = pm.response.json(); pm.expect(data.resumen).to.be.an('object'); pm.expect(data.interacciones).to.be.an('array'); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "23 - Login cliente para historial (edite credenciales)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/auth/login",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"cliente.prueba@example.com\",\n  \"password\": \"Prueba123!\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "description": "Use las credenciales de una cuenta Cliente de prueba; guarda tokenCliente si el login responde 200."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Login cliente responde 200', function () { pm.response.to.have.status(200); });",
+              "const data = pm.response.json();",
+              "if (data.token) pm.collectionVariables.set('tokenCliente', data.token);",
+              "pm.test('Se recibió token JWT de cliente', function () { pm.expect(data.token).to.be.a('string'); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "24 - Registrar venta concretada (Protagonista)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{tokenProtagonista}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/ventas",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"detalles\": [\n    {\n      \"id_producto\": \"{{productId}}\",\n      \"cantidad\": 1\n    }\n  ],\n  \"comprador_email\": \"cliente.prueba@example.com\",\n  \"metodo_pago\": \"Efectivo\",\n  \"metodo_entrega\": \"Entrega presencial\",\n  \"observaciones\": \"Operación de demostración previamente acordada\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "description": "Requiere protagonista verificado, un producto activo con al menos una unidad y una cuenta Cliente existente con el correo indicado. Cambie el correo de ejemplo si es necesario."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Venta registrada (201)', function () { pm.response.to.have.status(201); });",
+              "const data = pm.response.json();",
+              "if (data.venta && data.venta.id_venta) pm.collectionVariables.set('saleId', String(data.venta.id_venta));",
+              "pm.test('La respuesta incluye la venta y total', function () { pm.expect(data.venta.id_venta).to.exist; pm.expect(data.venta.total).to.be.a('number'); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "25 - Mis ventas (Protagonista)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{tokenProtagonista}}"
+          }
+        ],
+        "url": "{{baseUrl}}/ventas/mias",
+        "description": "Devuelve las operaciones de venta del protagonista autenticado."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Historial de ventas responde 200', function () { pm.response.to.have.status(200); });",
+              "pm.test('Incluye un arreglo de ventas', function () { pm.expect(pm.response.json().ventas).to.be.an('array'); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "26 - Mis compras (Cliente)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{tokenCliente}}"
+          }
+        ],
+        "url": "{{baseUrl}}/ventas/compras",
+        "description": "Devuelve solamente ventas vinculadas a la cuenta Cliente con la que se inició sesión."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Historial de compras responde 200', function () { pm.response.to.have.status(200); });",
+              "pm.test('Incluye un arreglo de compras', function () { pm.expect(pm.response.json().compras).to.be.an('array'); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "27 - Detalle de venta por ID",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{tokenProtagonista}}"
+          }
+        ],
+        "url": "{{baseUrl}}/ventas/{{saleId}}",
+        "description": "Solo accesible al vendedor propietario, al comprador vinculado o a un administrador."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Detalle de venta responde 200', function () { pm.response.to.have.status(200); });",
+              "pm.test('Incluye cabecera y detalle', function () { const data = pm.response.json(); pm.expect(data.venta.id_venta).to.exist; pm.expect(data.detalles).to.be.an('array'); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "28 - Todas las operaciones (Admin)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{tokenAdmin}}"
+          }
+        ],
+        "url": "{{baseUrl}}/ventas",
+        "description": "Consulta administrativa de las últimas 200 operaciones."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Consulta administrativa responde 200', function () { pm.response.to.have.status(200); });",
+              "pm.test('Incluye un arreglo de ventas', function () { pm.expect(pm.response.json().ventas).to.be.an('array'); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "29 - Anular venta y restaurar stock",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{tokenProtagonista}}"
+          }
+        ],
+        "url": "{{baseUrl}}/ventas/{{saleId}}/anular",
+        "description": "Solo anula una venta registrada y restaura existencias en una sola transacción. Se puede ejecutar una sola vez."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Venta anulada (200)', function () { pm.response.to.have.status(200); });",
+              "pm.test('Confirma estado anulado', function () { pm.expect(pm.response.json().estado).to.eql('Anulada'); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "30 - Reporte administrativo de ventas",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{tokenAdmin}}"
+          }
+        ],
+        "url": "{{baseUrl}}/reportes/ventas",
+        "description": "Devuelve recuentos de operaciones registradas/anuladas, importe de operaciones no anuladas, ventas del día y cinco productos más vendidos. Solo Admin."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Reporte de ventas responde 200', function () { pm.response.to.have.status(200); });",
+              "pm.test('Incluye resumen y productos más vendidos', function () { const data = pm.response.json(); pm.expect(data.resumen).to.be.an('object'); pm.expect(data.productos_mas_vendidos).to.be.an('array'); });"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

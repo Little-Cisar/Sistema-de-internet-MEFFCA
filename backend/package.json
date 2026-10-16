@@ -1,0 +1,27 @@
+{
+  "name": "mefcca-backend",
+  "version": "1.4.0",
+  "private": true,
+  "description": "Backend REST de MEFCCA con SQL Server, autenticación, catálogo, perfiles, interacciones, reportes y gestión transaccional de ventas.",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "check": "node --check src/server.js && node --check src/app.js && node --check src/config/database.js && node --check src/controllers/authController.js && node --check src/controllers/productController.js && node --check src/controllers/categoryController.js && node --check src/controllers/protagonistController.js && node --check src/controllers/adminController.js && node --check src/controllers/interactionController.js && node --check src/controllers/reportController.js && node --check src/controllers/salesController.js && node --check src/middleware/authMiddleware.js && node --check src/routes/authRoutes.js && node --check src/routes/productRoutes.js && node --check src/routes/categoryRoutes.js && node --check src/routes/protagonistRoutes.js && node --check src/routes/adminRoutes.js && node --check src/routes/interactionRoutes.js && node --check src/routes/reportRoutes.js && node --check src/routes/salesRoutes.js && node --check src/validators/validateRequest.js && node --check src/scripts/createInitialAdmin.js",
+    "crear-admin": "node src/scripts/createInitialAdmin.js"
+  },
+  "dependencies": {
+    "bcrypt": "^5.1.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "express-rate-limit": "^7.5.0",
+    "express-validator": "^7.2.1",
+    "helmet": "^8.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "mssql": "^11.0.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.9"
+  }
+}
